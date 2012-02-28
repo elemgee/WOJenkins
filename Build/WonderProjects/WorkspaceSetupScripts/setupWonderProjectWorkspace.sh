@@ -209,10 +209,11 @@ for PROJECT in $PROJECTS; do
 			# check for that last too, so this Can't be an elseif, it
 			# must be an if.
 			if [ -e "${FRAMEWORK_ARTIFACT_PATH_IN_JENKINS_JOB}" ]; then
-				echo "    Found in Jenkins Job: ${JENKINS_URL}job/${FRAMEWORK}/lastSuccessfulBuild/artifact/Projects/${FRAMEWORK}/dist"
+				#echo "    Found in Jenkins Job: ${JENKINS_URL}job/${FRAMEWORK}/lastSuccessfulBuild/artifact/Projects/${FRAMEWORK}/dist"
+				echo "    Found in Jenkins Job: ${JENKINS_FRAMEWORK_JOB_DIST}"
 				echo "        ${FRAMEWORK_ARTIFACT_PATH_IN_JENKINS_JOB}"
 				if [ -e "${JENKINS_FRAMEWORK_JOB_DIST}/${FRAMEWORK}.framework" ]; then
-					echo "    ${FRAMEWORK}.tar.gz has already been extracted."
+					echo "    ${FRAMEWORK}.tar.gz has already been extracted to ${JENKINS_FRAMEWORK_JOB_DIST}/${FRAMEWORK}.framework."
 				else
 					echo "    ${FRAMEWORK}.tar.gz has not been extracted. Extracting now."
 					echo "        tar -C ${JENKINS_FRAMEWORK_JOB_DIST}"
