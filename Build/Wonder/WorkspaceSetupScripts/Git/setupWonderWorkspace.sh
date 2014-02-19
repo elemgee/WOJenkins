@@ -65,12 +65,12 @@ elif [ "$PLATFORM_TYPE" = "Darwin" ]; then
     SYSTEM_PATH_PREFIX="/System"
 else
     LOCAL_PATH_PREFIX="/Local"
-    SYSTEM_PATH_PREFIX=""
+    SYSTEM_PATH_PREFIX="/System"
 fi
 
 # Create variables for the build's WO_SYSTEM_ROOT and WO_LOCAL_ROOT
 WO_SYSTEM_ROOT_FOR_THIS_BUILD="${ROOT}${SYSTEM_PATH_PREFIX}"
- WO_LCOAL_ROOT_FOR_THIS_BUILD="${ROOT}${LOCAL_PATH_PREFIX}"
+ WO_LOCAL_ROOT_FOR_THIS_BUILD="${ROOT}${LOCAL_PATH_PREFIX}"
 
 # Since we are only setting up the workspace for building Project WOnder,
 # we can simply link to the System and Local Library directories instead
@@ -88,7 +88,7 @@ mkdir -p ${WORKSPACE}/Libraries
 
 # Setup Root
 rm -rf ${ROOT}
-echo "mkdir -p ${WO_LCOAL_ROOT_FOR_THIS_BUILD}"
+echo "mkdir -p ${WO_LOCAL_ROOT_FOR_THIS_BUILD}"
 mkdir -p ${WO_LOCAL_ROOT_FOR_THIS_BUILD}
 echo "mkdir -p ${WO_SYSTEM_ROOT_FOR_THIS_BUILD}"
 mkdir -p ${WO_SYSTEM_ROOT_FOR_THIS_BUILD}
@@ -102,8 +102,8 @@ echo "Look for: ${WEBOBJECTS_LIBRARY_IN_FRAMEWORKS_REPOSITORY}"
 if [ -e "${WEBOBJECTS_LIBRARY_IN_FRAMEWORKS_REPOSITORY}" ]; then
 	echo "Use WebObject's Library directory as the System Library directory"
 	echo "ln -sfn ${WEBOBJECTS_LIBRARY_IN_FRAMEWORKS_REPOSITORY}"
-	echo "        ${WO_SYSTEM_ROOT_FOR_THIS_BUILD}"
-	(ln -sfn ${WEBOBJECTS_LIBRARY_IN_FRAMEWORKS_REPOSITORY} ${WO_SYSTEM_ROOT_FOR_THIS_BUILD})
+	echo "        ${WO_SYSTEM_ROOT_FOR_THIS_BUILD}/"
+	(ln -sfn ${WEBOBJECTS_LIBRARY_IN_FRAMEWORKS_REPOSITORY} ${WO_SYSTEM_ROOT_FOR_THIS_BUILD}/)
 else
 	echo "WebObjects Version ${WO_VERSION} NOT FOUND!"
 	echo "This build cannot run without it. Verify that the installWebObjects.sh script is being run and"

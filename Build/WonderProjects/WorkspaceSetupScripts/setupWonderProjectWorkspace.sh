@@ -83,7 +83,7 @@ elif [ "$PLATFORM_TYPE" = "Darwin" ]; then
     SYSTEM_PATH_PREFIX="/System"
 else
     LOCAL_PATH_PREFIX="/Local"
-    SYSTEM_PATH_PREFIX=""
+    SYSTEM_PATH_PREFIX="/System"
 fi
 echo "        Local Path Prefix: ${LOCAL_PATH_PREFIX}"
 echo "       System Path Prefix: ${SYSTEM_PATH_PREFIX}"
@@ -95,6 +95,9 @@ WEBOBJECTS_FRAMEWORKS_IN_FRAMEWORKS_REPOSITORY="${WEBOBJECTS_ROOT_IN_FRAMEWORKS_
 
 		  WONDER_ROOT_IN_FRAMEWORKS_REPOSITORY="${FRAMEWORKS_REPOSITORY}/ProjectWOnder/${WONDER_GIT_REFERENCE}/${WO_VERSION}"
 	WONDER_FRAMEWORKS_IN_FRAMEWORKS_REPOSITORY="${WONDER_ROOT_IN_FRAMEWORKS_REPOSITORY}/Library/Frameworks"
+
+			SDAG_ROOT_IN_FRAMEWORKS_REPOSITORY="${FRAMEWORKS_REPOSITORY}/SDAG"
+	  SDAG_FRAMEWORKS_IN_FRAMEWORKS_REPOSITORY="${SDAG_ROOT_IN_FRAMEWORKS_REPOSITORY}/Library/Frameworks"
 
 				 WO_SYSTEM_ROOT_FOR_THIS_BUILD="${ROOT}${SYSTEM_PATH_PREFIX}"
 		   WO_SYSTEM_FRAMEWORKS_FOR_THIS_BUILD="${WO_SYSTEM_ROOT_FOR_THIS_BUILD}/Library/Frameworks"
@@ -120,8 +123,8 @@ if [ -e "${WOTASKD_IN_FRAMEWORKS_REPOSITORY}" ]; then
 	mkdir -p ${WO_JAVA_APPS_ROOT_FOR_THIS_BUILD}
 	echo "    Found wotaskd.woa in the Framworks Repository."
 	echo "        Linking: ln -sfn ${WOTASKD_IN_FRAMEWORKS_REPOSITORY}"
-	echo "                         ${WO_JAVA_APPS_ROOT_FOR_THIS_BUILD}"
-	(ln -sfn ${WOTASKD_IN_FRAMEWORKS_REPOSITORY} ${WO_JAVA_APPS_ROOT_FOR_THIS_BUILD})
+	echo "                         ${WO_JAVA_APPS_ROOT_FOR_THIS_BUILD}/"
+	(ln -sfn ${WOTASKD_IN_FRAMEWORKS_REPOSITORY} ${WO_JAVA_APPS_ROOT_FOR_THIS_BUILD}/)
 else
 	echo "    WOBootstrap.jar NOT FOUND!"
 	echo "        This build cannot run without it. Verify that WebObjects has been installed"
@@ -154,10 +157,10 @@ PROJECTS=`ls ${WORKSPACE}/Projects/`
 
 # Step through them to get the list of WO frameworks on their Classpath.
 for PROJECT in $PROJECTS; do
-	if [ "${PROJECT}" == "${PROJECT_NAME}" ]; then
+#	if [ "${PROJECT}" == "${PROJECT_NAME}" ]; then
 		echo " "
-		echo "Parsing ${WORKSPACE}/Projects/**/.classpath to determine WOFramework dependencies"
-		FRAMEWORKS=`cat ${WORKSPACE}/Projects/**/.classpath | grep WOFramework/ | sed 's#.*WOFramework/\([^"]*\)"/>#\1#'`
+		echo "Parsing ${WORKSPACE}/Projects/**/.classpath and ${WORKSPACE}/**/.classpath to determine WOFramework dependencies"
+		FRAMEWORKS=`cat ${WORKSPACE}/Projects/**/.classpath ${WORKSPACE}/**/.classpath | grep WOFramework/ | sed 's#.*WOFramework/\([^"]*\)"/>#\1#' | awk '!x[$0]++'`
 		echo "WOFrameworks required by ${PROJECT} :"
 		echo "$FRAMEWORKS"
 		echo "Find them and create Symbolic Links to them (much faster than copying!)"
@@ -166,17 +169,21 @@ for PROJECT in $PROJECTS; do
 		#	1) In the projects checked out by this project in the ${WORKSPACE}/Projects directory
 		#	2) WebObjects Frameworks in the WOFrameworksRepository
 		#	3) Project WOnder Frameworks in the WOFrameworksRepository
-		#	4) Other Jenkins jobs with matching names - very limiting.
+		#	4) SD Frameworks in the WOFrameworksRepository
+		#	5) Other Jenkins jobs with matching names - very limiting.
 		#		(TODO: This should look for other jobs that have this job's name
 		#			   in the <childProjects> tag of their config.xml file.)
 		for FRAMEWORK in $FRAMEWORKS; do
 			FRAMEWORK_LINK_SUCCESSFUL="false"
 			echo " "
 			echo "Look For: ${FRAMEWORK}"
+			FRAMEWORK_IN_SAME_MAINJOB_PROJECT="${WORKSPACE}/${FRAMEWORK}"
+			FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL="${WORKSPACE}/${FRAMEWORK}/dist/${FRAMEWORK}.framework"
 			FRAMEWORK_IN_SAME_JOB_PROJECT="${WORKSPACE}/Projects/${FRAMEWORK}"
 			FRAMEWORK_NAME_IN_SAME_JOB_INSTALL="${WORKSPACE}/Projects/${FRAMEWORK}/dist/${FRAMEWORK}.framework"
 			FRAMEWORK_NAME_IN_WEBOBJECTS_INSTALL="${WEBOBJECTS_FRAMEWORKS_IN_FRAMEWORKS_REPOSITORY}/${FRAMEWORK}.framework"
 			FRAMEWORK_NAME_IN_WONDER_INSTALL="${WONDER_FRAMEWORKS_IN_FRAMEWORKS_REPOSITORY}/${FRAMEWORK}.framework"
+			FRAMEWORK_NAME_IN_SDAG_INSTALL="${SDAG_FRAMEWORKS_IN_FRAMEWORKS_REPOSITORY}/${FRAMEWORK}.framework"
 			JENKINS_FRAMEWORK_JOB_DIST="${JOB_ROOT}/${FRAMEWORK}${BRANCH_TAG_DELIMITER}${PROJECT_BRANCH_TAG}/lastSuccessful/archive/Projects/${FRAMEWORK}/dist"
 			FRAMEWORK_ARTIFACT_PATH_IN_JENKINS_JOB="${JENKINS_FRAMEWORK_JOB_DIST}/${FRAMEWORK}.tar.gz"
 
@@ -196,8 +203,19 @@ for PROJECT in $PROJECTS; do
 				echo "                         ${WO_LOCAL_FRAMEWORKS_FOR_THIS_BUILD}"
 				(ln -sfn ${FRAMEWORK_NAME_IN_SAME_JOB_INSTALL} ${WO_LOCAL_FRAMEWORKS_FOR_THIS_BUILD})
 				FRAMEWORK_LINK_SUCCESSFUL="true"
+			elif [ -e "${FRAMEWORK_IN_SAME_MAINJOB_PROJECT}" ]; then
+				echo "    Found in this job's Workspace main directory. Assuming it will be built and installed in: ${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL}"
+				if [ ! -e "${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL}" ]; then
+					echo "            ${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL} doesn't yet exist, make it and link to it."
+					echo "            mkdir -p ${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL}"
+					mkdir -p ${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL}
+				fi
+				echo "        Linking: ln -sfn ${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL}"
+				echo "                         ${WO_LOCAL_FRAMEWORKS_FOR_THIS_BUILD}"
+				(ln -sfn ${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL} ${WO_LOCAL_FRAMEWORKS_FOR_THIS_BUILD})
+				FRAMEWORK_LINK_SUCCESSFUL="true"
 			else
-				echo "    Not found in this job's Workspace/Projects directory: ${FRAMEWORK_IN_SAME_JOB_PROJECT}"
+				echo "    Not found in this job's Workspace/Projects or main directory: ${FRAMEWORK_IN_SAME_JOB_PROJECT} or ${FRAMEWORK_IN_SAME_MAINJOB_PROJECT}"
 
 				# Check to see if the Framework is a System framework
 				# (WebObjects core frameworks) by checking for it in the
@@ -226,6 +244,22 @@ for PROJECT in $PROJECTS; do
 					FRAMEWORK_LINK_SUCCESSFUL="true"
 				else
 					echo "    Not found in Project WOnder: ${FRAMEWORK_NAME_IN_WONDER_INSTALL}"
+				fi
+
+				# Check to see if the Framework is a SDAG framework by
+				# checking for it in the SDAG frameworks path of the
+				# repository NOTE: The same framework name can exist in both
+				# (JavaWOExtensions.framework, for example) so this is not
+				# either/or situation and we must link to both. The Local
+				# version will be used automatically by WO if it exists.
+				if [ -e "${FRAMEWORK_NAME_IN_SDAG_INSTALL}" ]; then
+					echo "    Found in SDAG."
+					echo "        Linking: ln -sfn ${FRAMEWORK_NAME_IN_SDAG_INSTALL}"
+					echo "                         ${WO_LOCAL_FRAMEWORKS_FOR_THIS_BUILD}"
+					(ln -sfn ${FRAMEWORK_NAME_IN_SDAG_INSTALL} ${WO_LOCAL_FRAMEWORKS_FOR_THIS_BUILD})
+					FRAMEWORK_LINK_SUCCESSFUL="true"
+				else
+					echo "    Not found in SDAG: ${FRAMEWORK_NAME_IN_SDAG_INSTALL}"
 				fi
 
 				# Check to see if the Framework is a Jenkins-Built framework
@@ -259,14 +293,17 @@ for PROJECT in $PROJECTS; do
 				echo "    ${FRAMEWORK}.framework must be available at one of the following locations:"
 				echo "        1) As another project checked out by this job into the workspace Projects directory: ${FRAMEWORK_IN_SAME_JOB_PROJECT}"
 				echo "           and built (most likely by its own ant task) into: ${FRAMEWORK_NAME_IN_SAME_JOB_INSTALL}"
-				echo "        2) In the WebObjects Frameworks at: ${FRAMEWORK_NAME_IN_WEBOBJECTS_INSTALL}"
-				echo "        3) In the Wonder Frameworks at: ${FRAMEWORK_NAME_IN_WONDER_INSTALL}"
-				echo "        4) As a Jenkins job that has at least one successful Build and"
+				echo "        2) As another project checked out by this job into the workspace main directory: ${FRAMEWORK_IN_SAME_MAINJOB_PROJECT}"
+				echo "           and built (most likely by its own ant task) into: ${FRAMEWORK_NAME_IN_SAME_MAINJOB_INSTALL}"
+				echo "        3) In the WebObjects Frameworks at: ${FRAMEWORK_NAME_IN_WEBOBJECTS_INSTALL}"
+				echo "        4) In the Wonder Frameworks at: ${FRAMEWORK_NAME_IN_WONDER_INSTALL}"
+				echo "        5) In the SDAG Frameworks at: ${FRAMEWORK_NAME_IN_SDAG_INSTALL}"
+				echo "        6) As a Jenkins job that has at least one successful Build and"
 				echo "           an artifact path of *exactly*: ${FRAMEWORK_ARTIFACT_PATH_IN_JENKINS_JOB}"
 				exit 1
 			fi
 		done
-	fi
+#	fi
 done
 
 echo "Link to ${WOPROJECT} so Ant can build the WO project."
